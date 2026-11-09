@@ -9,3 +9,7 @@
 - 存檔在瀏覽器 localStorage
 
 線上玩：https://sanguo-pixel.pages.dev
+
+## 版本
+- v1：5v5 回合戰上線
+- v1.1：修開機陣型彈窗遮擋（.overlay.hidden）
