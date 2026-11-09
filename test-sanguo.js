@@ -211,4 +211,12 @@ t('S16 無alert', !html.includes('alert('));
 t('S16 有存檔與升級', html.includes('sanguo_pixel_v1') && html.includes('buyUpgrade'));
 t('S16 有三計謀', html.includes('潛雷計') && html.includes('聖雨') && html.includes('火計'));
 
+// --- S17 彈窗遮擋回歸（v1.1 blocker）：.overlay 不可蓋掉 hidden ---
+t('S17 overlay.hidden 規則在', html.includes('.overlay.hidden') && html.includes('display: none'));
+t('S17 開機陣型清單已畫好', T.$('formation-list').innerHTML.includes('鶴翼陣') && T.$('formation-list').innerHTML.includes('魚鱗陣') && T.$('formation-list').innerHTML.includes('鋒矢陣'));
+t('S17 開機其他彈窗是 hidden', T.$('panel-formation').classList.contains('hidden') && T.$('panel-result').classList.contains('hidden') && T.$('panel-upgrade').classList.contains('hidden'));
+T.showStart();
+t('S17 開機開始畫面顯示', !T.$('panel-start').classList.contains('hidden'));
+t('S17 showStart 藏起其他彈窗', T.$('panel-formation').classList.contains('hidden') && T.$('panel-result').classList.contains('hidden') && T.$('panel-upgrade').classList.contains('hidden'));
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
