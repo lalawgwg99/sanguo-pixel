@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>像素三國志｜5v5 回合戰</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  body { background: #0d0b1e; }
+  .pixelated { image-rendering: pixelated; }
+  .gen-card { position: relative; background: #1c1830; border: 2px solid #3d355e; border-radius: 10px; padding: 3px; cursor: pointer; text-align: center; transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease; }
+  .gen-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 7px; display: block; }
+  .gen-card .gname { font-size: 12px; font-weight: 900; color: #f4ede0; margin-top: 2px; white-space: nowrap; overflow: hidden; }
+  .gen-card .hp-num { font-size: 10px; color: #b8a686; line-height: 1.2; }
+  .gen-card.selected { border-color: #f6c453; box-shadow: 0 0 12px #f6c453; transform: translateY(-3px); }
+  .gen-card.targetable { border-color: #ef4444; animation: pulseRed 1s ease-in-out infinite; }
+  @keyframes pulseRed { 0%,100% { box-shadow: 0 0 0 rgba(239,68,68,0); } 50% { box-shadow: 0 0 10px rgba(239,68,68,.8); } }
+  .gen-card.dead { filter: grayscale(1) brightness(.45); cursor: default; }
+  .hp-bar { height: 7px; background: #2a2438; border-radius: 999px; overflow: hidden; margin-top: 3px; border: 1px solid #000; }
+  .hp-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #4ade80); transition: width .3s ease; }
+  .hp-fill.low { background: linear-gradient(90deg, #dc2626, #f87171); }
+  .hp-fill.mid { background: linear-gradient(90deg, #d97706, #fbbf24); }
+  .lunge-up { animation: lungeUp .28s ease; }
+  @keyframes lungeUp { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
+  .lunge-down { animation: lungeDown .28s ease; }
+  @keyframes lungeDown { 0% { transform: translateY(0); } 50% { transform: translateY(10px); } 100% { transform: translateY(0); } }
+  .shake { animation: shake .3s ease; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  .dmg-float { position: absolute; left: 50%; top: 30%; transform: translate(-50%, 0); font-size: 18px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #000, 0 0 6px rgba(0,0,0,.8); pointer-events: none; z-index: 10; animation: floatUp .9s ease-out forwards; white-space: nowrap; }
+  .dmg-float.crit { color: #f6c453; font-size: 22px; }
+  .dmg-float.heal { color: #4ade80; }
+  .dmg-float.skill { color: #a78bfa; }
+  @keyframes floatUp { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -44px); } }
+  .skill-btn { background: #2a2144; border: 2px solid #4c3f78; border-radius: 12px; padding: 8px 4px; color: #fff; font-weight: 800; font-size: 14px; line-height: 1.3; }
+  .skill-btn small { display: block; font-size: 11px; color: #b8a686; font-weight: 700; }
+  .skill-btn:disabled { opacity: .4; }
+  .skill-btn:active { background: #3d2f66; }
+  .gold-btn { background: linear-gradient(180deg, #f6c453, #d9941a); color: #1e1a16; border-radius: 12px; font-weight: 900; padding: 10px 14px; }
+  .paper-btn { background: #f4ede0; color: #1e1a16; border-radius: 12px; font-weight: 900; padding: 10px 14px; }
+  .dark-btn { background: #2a2144; border: 2px solid #4c3f78; color: #fff; border-radius: 12px; font-weight: 800; padding: 10px 14px; }
+  .log-box { background: #14102a; border: 1px solid #3d355e; border-radius: 10px; height: 110px; overflow-y: auto; padding: 8px 10px; font-size: 13px; line-height: 1.6; }
+  .overlay { position: fixed; inset: 0; background: rgba(5,3,18,.88); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  .panel { background: #1c1830; border: 2px solid #4c3f78; border-radius: 16px; padding: 18px; width: 100%; max-width: 380px; max-height: 86vh; overflow-y: auto; }
+  .upg-row { display: flex; align-items: center; gap: 8px; background: #14102a; border: 1px solid #3d355e; border-radius: 10px; padding: 8px; margin-top: 8px; }
+  .upg-row img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+</style>
+</head>
+<body class="text-white">
+<div class="max-w-md mx-auto min-h-screen flex flex-col px-3 py-3 pb-6">
+
+  <!-- 頂部 -->
+  <div class="flex items-center justify-between">
+    <h1 class="font-black text-lg">⚔️ 像素三國志</h1>
+    <div class="text-xs font-bold text-[#f6c453]">💰 軍功 <span id="merit">0</span>・第 <span id="stage">1</span> 關</div>
+    <button type="button" id="btn-mute" onclick="toggleMute()" class="dark-btn !px-2 !py-1 text-sm">🔊</button>
+  </div>
+
+  <!-- 狀態列 -->
+  <div class="flex items-center justify-between text-sm font-bold mt-2 bg-[#14102a] border border-[#3d355e] rounded-xl px-3 py-2">
+    <span>🔷 SP <span id="sp" class="text-[#7dd3fc]">128</span> / 128</span>
+    <span>回合 <span id="turn">1</span></span>
+    <span>陣型 <span id="formation-name" class="text-[#f6c453]">鶴翼陣</span></span>
+  </div>
+
+  <!-- 敵軍 -->
+  <div class="text-xs font-black text-[#f87171] mt-3 mb-1">敵軍・司馬懿軍 <span id="enemy-alive" class="text-[#b8a686]"></span></div>
+  <div id="enemy-team" class="grid grid-cols-5 gap-1.5"></div>
+
+  <div class="text-center font-black text-[#f6c453] text-lg my-2">⚔️ VS ⚔️</div>
+
+  <!-- 我軍 -->
+  <div class="text-xs font-black text-[#4ade80] mb-1">我軍・蜀漢軍 <span id="my-alive" class="text-[#b8a686]"></span></div>
+  <div id="my-team" class="grid grid-cols-5 gap-1.5"></div>
+
+  <div id="hint" class="text-center text-xs text-[#b8a686] mt-2">👆 點我方武將，再點敵軍攻擊</div>
+
+  <!-- 計謀 -->
+  <div class="grid grid-cols-3 gap-2 mt-3">
+    <button type="button" id="skill-thunder" class="skill-btn" onclick="useSkill('thunder')">⚡ 潛雷計<small>SP 30・敵全體 -3000</small></button>
+    <button type="button" id="skill-rain" class="skill-btn" onclick="useSkill('rain')">🌧️ 聖雨<small>SP 40・我全體 +2500</small></button>
+    <button type="button" id="skill-fire" class="skill-btn" onclick="useSkill('fire')">🔥 火計<small>SP 20・最低血量 -4500</small></button>
+  </div>
+
+  <!-- 陣型 / 升級 -->
+  <div class="grid grid-cols-2 gap-2 mt-2">
+    <button type="button" class="dark-btn text-sm" onclick="openFormation()">陣型：<span id="formation-btn">鶴翼陣</span></button>
+    <button type="button" class="dark-btn text-sm" onclick="openUpgrade()">⬆️ 升級武將</button>
+  </div>
+
+  <!-- 戰報 -->
+  <div id="log" class="log-box mt-3"></div>
+
+  <!-- 開始畫面 -->
+  <div id="panel-start" class="overlay">
+    <div class="panel text-center">
+      <div class="text-4xl">⚔️</div>
+      <h2 class="font-black text-2xl mt-1">像素三國志</h2>
+      <p class="text-sm text-[#b8a686] mt-1">5v5 像素回合戰・打敗司馬懿軍！</p>
+      <p class="text-xs text-[#b8a686] mt-2">勝場 <span id="start-wins">0</span>・最高打到第 <span id="start-best">1</span> 關・軍功 <span id="start-merit">0</span></p>
+      <div class="text-left text-sm font-bold mt-4">難度</div>
+      <div class="grid grid-cols-3 gap-2 mt-1" id="diff-btns">
+        <button type="button" data-diff="easy" onclick="setDiff('easy')" class="dark-btn text-sm">簡單</button>
+        <button type="button" data-diff="normal" onclick="setDiff('normal')" class="dark-btn text-sm">普通</button>
+        <button type="button" data-diff="hard" onclick="setDiff('hard')" class="dark-btn text-sm">困難</button>
+      </div>
+      <div class="text-left text-sm font-bold mt-3">陣型</div>
+      <div class="grid grid-cols-3 gap-2 mt-1" id="formation-btns">
+        <button type="button" data-form="crane" onclick="setFormation('crane')" class="dark-btn text-sm">鶴翼陣<small class="block text-[11px] text-[#b8a686]">攻擊+10%</small></button>
+        <button type="button" data-form="fish" onclick="setFormation('fish')" class="dark-btn text-sm">魚鱗陣<small class="block text-[11px] text-[#b8a686]">受傷-10%</small></button>
+        <button type="button" data-form="arrow" onclick="setFormation('arrow')" class="dark-btn text-sm">鋒矢陣<small class="block text-[11px] text-[#b8a686]">暴擊+15%</small></button>
+      </div>
+      <button type="button" class="gold-btn w-full mt-5 text-base" onclick="startBattle()">⚔️ 開始戰鬥</button>
+      <button type="button" class="paper-btn w-full mt-2 text-sm" onclick="openUpgrade()">⬆️ 升級武將（用軍功）</button>
+    </div>
+  </div>
+
+  <!-- 結算畫面 -->
+  <div id="panel-result" class="overlay hidden">
+    <div class="panel text-center">
+      <div id="result-emoji" class="text-5xl">🎉</div>
+      <h2 id="result-title" class="font-black text-2xl mt-2">勝利！</h2>
+      <p id="result-text" class="text-sm text-[#b8a686] mt-2"></p>
+      <p id="result-reward" class="text-base font-black text-[#f6c453] mt-2"></p>
+      <button type="button" id="btn-next" class="gold-btn w-full mt-4" onclick="nextStage()">⚔️ 再戰下一關</button>
+      <button type="button" class="paper-btn w-full mt-2 text-sm" onclick="openUpgrade()">⬆️ 先升級武將</button>
+      <button type="button" class="dark-btn w-full mt-2 text-sm" onclick="backToStart()">回主畫面</button>
+    </div>
+  </div>
+
+  <!-- 升級畫面 -->
+  <div id="panel-upgrade" class="overlay hidden">
+    <div class="panel">
+      <h2 class="font-black text-lg text-center">⬆️ 升級武將</h2>
+      <p class="text-center text-sm text-[#f6c453] font-bold mt-1">💰 軍功 <span id="upg-merit">0</span></p>
+      <p class="text-center text-xs text-[#b8a686]">打贏戰鬥賺軍功，攻擊每次 +150、體力每次 +800</p>
+      <div id="upg-list"></div>
+      <button type="button" class="gold-btn w-full mt-4" onclick="closeUpgrade()">完成</button>
+    </div>
+  </div>
+
+  <!-- 陣型畫面 -->
+  <div id="panel-formation" class="overlay hidden">
+    <div class="panel">
+      <h2 class="font-black text-lg text-center">陣型</h2>
+      <p class="text-center text-xs text-[#b8a686] mt-1">戰鬥中也可以換陣型</p>
+      <div id="formation-list" class="mt-2"></div>
+      <button type="button" class="gold-btn w-full mt-4" onclick="closeFormation()">確定</button>
+    </div>
+  </div>
+
+</div>
+<script>
+const SAVE_KEY = 'sanguo_pixel_v1';
+const HEROES = [
+  { id: 'zhaoyun', name: '趙雲', hp: 9800, atk: 1800, img: 'assets/zhaoyun.webp' },
+  { id: 'guanyu', name: '關羽', hp: 9999, atk: 2200, img: 'assets/guanyu.webp' },
+  { id: 'zhangfei', name: '張飛', hp: 9600, atk: 2000, img: 'assets/zhangfei.webp' },
+  { id: 'zhouyu', name: '周瑜', hp: 9558, atk: 1700, img: 'assets/zhouyu.webp' },
+  { id: 'jiangwei', name: '姜維', hp: 9800, atk: 1900, img: 'assets/jiangwei.webp' },
+];
+const ENEMIES = [
+  { id: 'simayi', name: '司馬懿', hp: 28000, atk: 1200, img: 'assets/simayi.webp' },
+  { id: 'simayan', name: '司馬炎', hp: 26000, atk: 1100, img: 'assets/simayan.webp' },
+  { id: 'dengai', name: '鄧艾', hp: 24000, atk: 1300, img: 'assets/dengai.webp' },
+  { id: 'zhonghui', name: '鍾會', hp: 24000, atk: 1250, img: 'assets/zhonghui.webp' },
+  { id: 'xuhuang', name: '徐晃', hp: 24000, atk: 1150, img: 'assets/xuhuang.webp' },
+];
+const FORMATIONS = {
+  crane: { name: '鶴翼陣', desc: '攻擊 +10%', atkMul: 1.10, defMul: 1, critBonus: 0 },
+  fish: { name: '魚鱗陣', desc: '受到傷害 -10%', atkMul: 1, defMul: 0.90, critBonus: 0 },
+  arrow: { name: '鋒矢陣', desc: '暴擊率 +15%', atkMul: 1, defMul: 1, critBonus: 0.15 },
+};
+const DIFFS = {
+  easy: { name: '簡單', hpMul: 0.7, atkMul: 0.8, meritMul: 0.8 },
+  normal: { name: '普通', hpMul: 1, atkMul: 1, meritMul: 1 },
+  hard: { name: '困難', hpMul: 1.3, atkMul: 1.15, meritMul: 1.3 },
+};
+const SKILLS = {
+  thunder: { name: '潛雷計', cost: 30, dmg: 3000, desc: '敵全體 -3000' },
+  rain: { name: '聖雨', cost: 40, heal: 2500, desc: '我全體 +2500' },
+  fire: { name: '火計', cost: 20, dmg: 4500, desc: '最低血量敵軍 -4500' },
+};
+const SP_MAX = 128, SP_PER_ACTION = 8;
+function defaultSave() {
+  return { merit: 0, stage: 1, diff: 'normal', formation: 'crane', wins: 0, best: 1, muted: false,
+    upgrades: { zhaoyun: { atk: 0, hp: 0 }, guanyu: { atk: 0, hp: 0 }, zhangfei: { atk: 0, hp: 0 }, zhouyu: { atk: 0, hp: 0 }, jiangwei: { atk: 0, hp: 0 } } };
+}
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return defaultSave();
+    const s = JSON.parse(raw);
+    const d = defaultSave();
+    const out = Object.assign(d, s);
+    out.upgrades = Object.assign(d.upgrades, s.upgrades || {});
+    HEROES.forEach(h => { if (!out.upgrades[h.id]) out.upgrades[h.id] = { atk: 0, hp: 0 }; });
+    return out;
+  } catch (e) { return defaultSave(); }
+}
+function persistSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+let save = loadSave();
+let battle = null;
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+function stageScale() { return 1 + 0.12 * (save.stage - 1); }
+function heroStats(h) {
+  const u = save.upgrades[h.id] || { atk: 0, hp: 0 };
+  return { hp: h.hp + u.hp * 800, atk: h.atk + u.atk * 150 };
+}
+function upgradeCost(lv) { return 200 * (lv + 1); }
+function newBattle() {
+  const diff = DIFFS[save.diff];
+  const sc = stageScale();
+  battle = {
+    my: HEROES.map(h => { const st = heroStats(h); return { id: h.id, name: h.name, img: h.img, hp: st.hp, max: st.hp, atk: st.atk }; }),
+    enemy: ENEMIES.map(e => ({ id: e.id, name: e.name, img: e.img, hp: Math.round(e.hp * diff.hpMul * sc), max: Math.round(e.hp * diff.hpMul * sc), atk: Math.round(e.atk * diff.atkMul * sc) })),
+    sp: SP_MAX, turn: 1, selected: -1, over: false, simayiCast: 0,
+  };
+  log('第 ' + save.stage + ' 關開戰！' + DIFFS[save.diff].name + '難度・' + FORMATIONS[save.formation].name + '——打敗司馬懿軍！');
+}
+function calcDamage(atk, isHero, crit) {
+  const form = FORMATIONS[save.formation];
+  let dmg = atk * (0.85 + Math.random() * 0.3);
+  if (isHero) dmg *= form.atkMul;
+  if (crit) dmg *= 1.5;
+  return Math.max(1, Math.round(dmg));
+}
+function isCrit() {
+  const form = FORMATIONS[save.formation];
+  return Math.random() < 0.10 + form.critBonus;
+}
+function renderAll() {
+  renderHeader();
+  renderTeams();
+  renderStatus();
+  renderSkillBtns();
+}
+function renderHeader() {
+  $('merit').textContent = fmt(save.merit);
+  $('stage').textContent = save.stage;
+  $('start-wins').textContent = save.wins;
+  $('start-best').textContent = save.best;
+  $('start-merit').textContent = fmt(save.merit);
+  $('btn-mute').textContent = save.muted ? '🔇' : '🔊';
+}
+function hpClass(hp, max) { const r = hp / max; return r <= 0.25 ? 'low' : (r <= 0.5 ? 'mid' : ''); }
+function cardHtml(u, side, i) {
+  const dead = u.hp <= 0;
+  const cls = side === 'my'
+    ? 'gen-card' + (dead ? ' dead' : '') + (battle && battle.selected === i && !dead ? ' selected' : '')
+    : 'gen-card' + (dead ? ' dead' : '') + (battle && battle.selected >= 0 && !dead ? ' targetable' : '');
+  const onclick = side === 'my' ? 'selectMy(' + i + ')' : 'attackEnemy(' + i + ')';
+  return '<button type="button" class="' + cls + '" id="card-' + side + '-' + i + '" onclick="' + onclick + '">'
+    + '<img src="' + u.img + '" alt="' + esc(u.name) + '" class="pixelated">'
+    + '<div class="gname">' + esc(u.name) + '</div>'
+    + '<div class="hp-bar"><div class="hp-fill ' + hpClass(u.hp, u.max) + '" style="width:' + Math.max(0, u.hp / u.max * 100) + '%"></div></div>'
+    + '<div class="hp-num">' + fmt(Math.max(0, u.hp)) + ' / ' + fmt(u.max) + '</div></button>';
+}
+function renderTeams() {
+  if (!battle) return;
+  $('my-team').innerHTML = battle.my.map((u, i) => cardHtml(u, 'my', i)).join('');
+  $('enemy-team').innerHTML = battle.enemy.map((u, i) => cardHtml(u, 'enemy', i)).join('');
+  $('my-alive').textContent = '(' + battle.my.filter(u => u.hp > 0).length + ' 人存活)';
+  $('enemy-alive').textContent = '(' + battle.enemy.filter(u => u.hp > 0).length + ' 人存活)';
+}
+function renderStatus() {
+  if (!battle) return;
+  $('sp').textContent = battle.sp;
+  $('turn').textContent = battle.turn;
+  $('formation-name').textContent = FORMATIONS[save.formation].name;
+  $('formation-btn').textContent = FORMATIONS[save.formation].name;
+}
+function renderSkillBtns() {
+  if (!battle) return;
+  Object.keys(SKILLS).forEach(k => {
+    const btn = $('skill-' + k);
+    if (btn) btn.disabled = battle.over || battle.sp < SKILLS[k].cost;
+  });
+}
+function log(msg) {
+  const el = $('log');
+  if (!el) return;
+  el.innerHTML = '<div>・' + esc(msg) + '</div>' + el.innerHTML;
+}
+function floatDmg(side, i, text, cls) {
+  const card = $('card-' + side + '-' + i);
+  if (!card) return;
+  const span = document.createElement('span');
+  span.className = 'dmg-float ' + (cls || '');
+  span.textContent = text;
+  card.appendChild(span);
+  setTimeout(() => { if (span.remove) span.remove(); }, 950);
+}
+function bumpCard(side, i, anim) {
+  const card = $('card-' + side + '-' + i);
+  if (!card) return;
+  card.classList.remove(anim);
+  void card.offsetWidth;
+  card.classList.add(anim);
+  setTimeout(() => card.classList.remove(anim), 350);
+}
+let audioCtx = null;
+function sfx(kind) {
+  if (save.muted) return;
+  try {
+    if (typeof AudioContext === 'undefined' && typeof webkitAudioContext === 'undefined') return;
+    if (!audioCtx) audioCtx = new (AudioContext || webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    const notes = { hit: [[220, 0.08]], crit: [[330, 0.08], [440, 0.1]], skill: [[523, 0.09], [659, 0.09], [784, 0.14]], heal: [[392, 0.1], [523, 0.14]], win: [[523, 0.12], [659, 0.12], [784, 0.12], [1047, 0.25]], lose: [[392, 0.15], [330, 0.15], [262, 0.3]] }[kind] || [[220, 0.08]];
+    notes.forEach((n, i) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'square'; o.frequency.value = n[0];
+      g.gain.setValueAtTime(0.06, t0 + i * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + i * 0.09 + n[1]);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0 + i * 0.09); o.stop(t0 + i * 0.09 + n[1]);
+    });
+  } catch (e) {}
+}
+function toggleMute() { save.muted = !save.muted; persistSave(); renderHeader(); }
+function selectMy(i) {
+  if (!battle || battle.over) return;
+  const u = battle.my[i];
+  if (!u || u.hp <= 0) return;
+  battle.selected = battle.selected === i ? -1 : i;
+  $('hint').textContent = battle.selected >= 0 ? '已選 ' + battle.my[battle.selected].name + '，點敵軍攻擊！' : '👆 點我方武將，再點敵軍攻擊';
+  renderTeams();
+}
+function attackEnemy(i) {
+  if (!battle || battle.over) return;
+  if (battle.selected < 0) { $('hint').textContent = '⚠️ 先點我方武將！'; return; }
+  const att = battle.my[battle.selected];
+  const def = battle.enemy[i];
+  if (!att || att.hp <= 0) return;
+  if (!def || def.hp <= 0) { log('他已經倒下了！'); return; }
+  const attIdx = battle.selected;
+  battle.selected = -1;
+  doAttack(att, def, 'my', attIdx, 'enemy', i, true);
+  if (checkEnd()) return;
+  enemyCounter(attIdx);
+  if (checkEnd()) return;
+  endTurn();
+}
+function doAttack(att, def, attSide, attIdx, defSide, defIdx, isHeroAttack) {
+  const crit = isCrit();
+  const dmg = calcDamage(att.atk, isHeroAttack, crit);
+  def.hp = Math.max(0, def.hp - dmg);
+  bumpCard(attSide, attIdx, attSide === 'my' ? 'lunge-up' : 'lunge-down');
+  bumpCard(defSide, defIdx, 'shake');
+  floatDmg(defSide, defIdx, (crit ? '暴擊 ' : '') + '-' + fmt(dmg), crit ? 'crit' : '');
+  log(att.name + ' 攻擊 ' + def.name + '，造成 ' + fmt(dmg) + ' 傷害' + (crit ? '（暴擊！）' : '') + '！');
+  sfx(crit ? 'crit' : 'hit');
+}
+function enemyCounter(attIdx) {
+  const alive = battle.enemy.map((e, i) => ({ e: e, i: i })).filter(x => x.e.hp > 0);
+  if (alive.length === 0) return;
+  if (Math.random() < 0.30) { log('敵軍沒有反擊。'); return; }
+  const pick = alive[Math.floor(Math.random() * alive.length)];
+  const target = battle.my[attIdx];
+  if (!target || target.hp <= 0) return;
+  const form = FORMATIONS[save.formation];
+  const raw = pick.e.atk * (0.7 + Math.random() * 0.4);
+  const dmg = Math.max(1, Math.round(raw * form.defMul));
+  target.hp = Math.max(0, target.hp - dmg);
+  bumpCard('enemy', pick.i, 'lunge-down');
+  bumpCard('my', attIdx, 'shake');
+  floatDmg('my', attIdx, '-' + fmt(dmg), '');
+  log(pick.e.name + ' 反擊 ' + target.name + '，造成 ' + fmt(dmg) + ' 傷害！');
+  sfx('hit');
+}
+function simayiCurse() {
+  const sm = battle.enemy[0];
+  if (!sm || sm.hp <= 0) return;
+  if (battle.turn % 5 !== 0) return;
+  const alive = battle.my.map((u, i) => ({ u: u, i: i })).filter(x => x.u.hp > 0);
+  if (alive.length === 0) return;
+  const pick = alive[Math.floor(Math.random() * alive.length)];
+  const dmg = 1500;
+  pick.u.hp = Math.max(0, pick.u.hp - dmg);
+  floatDmg('my', pick.i, '妖術 -' + fmt(dmg), 'skill');
+  log('😈 司馬懿施展妖術！' + pick.u.name + ' 受到 ' + fmt(dmg) + ' 傷害！');
+  sfx('skill');
+}
+function endTurn() {
+  battle.sp = Math.min(SP_MAX, battle.sp + SP_PER_ACTION);
+  battle.turn++;
+  simayiCurse();
+  renderAll();
+  checkEnd();
+}
+function useSkill(key) {
+  if (!battle || battle.over) return;
+  const sk = SKILLS[key];
+  if (!sk) return;
+  if (battle.sp < sk.cost) { log('SP 不足！需要 ' + sk.cost + '，現在只有 ' + battle.sp + '。'); return; }
+  battle.sp -= sk.cost;
+  if (key === 'thunder') {
+    battle.enemy.forEach((e, i) => {
+      if (e.hp <= 0) return;
+      e.hp = Math.max(0, e.hp - sk.dmg);
+      bumpCard('enemy', i, 'shake');
+      floatDmg('enemy', i, '-' + fmt(sk.dmg), 'skill');
+    });
+    log('⚡ 潛雷計！全體敵軍 -' + fmt(sk.dmg) + '！');
+  } else if (key === 'rain') {
+    battle.my.forEach((u, i) => {
+      if (u.hp <= 0) return;
+      const healed = Math.min(u.max - u.hp, sk.heal);
+      u.hp += healed;
+      if (healed > 0) floatDmg('my', i, '+' + fmt(healed), 'heal');
+    });
+    log('🌧️ 聖雨！我軍全體恢復 ' + fmt(sk.heal) + '！');
+  } else if (key === 'fire') {
+    const alive = battle.enemy.map((e, i) => ({ e: e, i: i })).filter(x => x.e.hp > 0);
+    if (alive.length === 0) { battle.sp += sk.cost; return; }
+    const pick = alive.slice().sort((a, b) => a.e.hp - b.e.hp)[0];
+    pick.e.hp = Math.max(0, pick.e.hp - sk.dmg);
+    bumpCard('enemy', pick.i, 'shake');
+    floatDmg('enemy', pick.i, '-' + fmt(sk.dmg), 'skill');
+    log('🔥 火計！' + pick.e.name + ' 受到 ' + fmt(sk.dmg) + ' 傷害！');
+  }
+  sfx('skill');
+  if (checkEnd()) return;
+  endTurn();
+}
+function checkEnd() {
+  if (!battle || battle.over) return false;
+  if (battle.enemy.every(e => e.hp <= 0)) { winBattle(); return true; }
+  if (battle.my.every(u => u.hp <= 0)) { loseBattle(); return true; }
+  return false;
+}
+function winBattle() {
+  battle.over = true;
+  const reward = Math.round(500 * save.stage * DIFFS[save.diff].meritMul);
+  save.merit += reward;
+  save.wins++;
+  save.best = Math.max(save.best, save.stage);
+  persistSave();
+  renderAll();
+  $('result-emoji').textContent = '🎉';
+  $('result-title').textContent = '勝利！';
+  $('result-text').textContent = '你打敗了司馬懿軍，第 ' + save.stage + ' 關通過！敵軍下一關會更強。';
+  $('result-reward').textContent = '💰 獲得軍功 +' + fmt(reward);
+  $('btn-next').textContent = '⚔️ 再戰第 ' + (save.stage + 1) + ' 關';
+  $('panel-result').classList.remove('hidden');
+  log('🎉 勝利！獲得軍功 +' + fmt(reward) + '！');
+  sfx('win');
+}
+function loseBattle() {
+  battle.over = true;
+  renderAll();
+  $('result-emoji').textContent = '💀';
+  $('result-title').textContent = '全軍覆沒…';
+  $('result-text').textContent = '我軍在第 ' + save.stage + ' 關敗北。去升級武將再來挑戰吧！';
+  $('result-reward').textContent = '';
+  $('btn-next').textContent = '🔄 再打一次第 ' + save.stage + ' 關';
+  $('panel-result').classList.remove('hidden');
+  log('💀 全軍覆沒…再試一次！');
+  sfx('lose');
+}
+function nextStage() {
+  if ($('result-title').textContent === '勝利！') save.stage++;
+  persistSave();
+  $('panel-result').classList.add('hidden');
+  startBattle();
+}
+function backToStart() {
+  $('panel-result').classList.add('hidden');
+  showStart();
+}
+function showStart() {
+  renderHeader();
+  document.querySelectorAll('#diff-btns button').forEach(b => {
+    b.style.borderColor = b.dataset.diff === save.diff ? '#f6c453' : '';
+  });
+  document.querySelectorAll('#formation-btns button').forEach(b => {
+    b.style.borderColor = b.dataset.form === save.formation ? '#f6c453' : '';
+  });
+  $('panel-start').classList.remove('hidden');
+}
+function setDiff(d) {
+  if (!DIFFS[d]) return;
+  save.diff = d; persistSave();
+  document.querySelectorAll('#diff-btns button').forEach(b => { b.style.borderColor = b.dataset.diff === d ? '#f6c453' : ''; });
+}
+function setFormation(f) {
+  if (!FORMATIONS[f]) return;
+  save.formation = f; persistSave();
+  renderStatus();
+  document.querySelectorAll('#formation-btns button').forEach(b => { b.style.borderColor = b.dataset.form === f ? '#f6c453' : ''; });
+  renderFormationList();
+}
+function startBattle() {
+  $('panel-start').classList.add('hidden');
+  $('panel-result').classList.add('hidden');
+  newBattle();
+  renderAll();
+  $('hint').textContent = '👆 點我方武將，再點敵軍攻擊';
+}
+function openFormation() { renderFormationList(); $('panel-formation').classList.remove('hidden'); }
+function closeFormation() { $('panel-formation').classList.add('hidden'); }
+function renderFormationList() {
+  $('formation-list').innerHTML = Object.keys(FORMATIONS).map(k => {
+    const f = FORMATIONS[k];
+    const active = save.formation === k;
+    return '<button type="button" onclick="setFormation(\'' + k + '\')" class="w-full text-left mt-2 p-3 rounded-xl border-2 ' + (active ? 'border-[#f6c453] bg-[#2a2144]' : 'border-[#3d355e] bg-[#14102a]') + '">'
+      + '<div class="font-black">' + f.name + (active ? ' ✓' : '') + '</div><div class="text-sm text-[#b8a686]">' + f.desc + '</div></button>';
+  }).join('');
+}
+function openUpgrade() { renderUpgradeList(); $('panel-upgrade').classList.remove('hidden'); }
+function closeUpgrade() { $('panel-upgrade').classList.add('hidden'); renderHeader(); }
+function renderUpgradeList() {
+  $('upg-merit').textContent = fmt(save.merit);
+  $('upg-list').innerHTML = HEROES.map(h => {
+    const u = save.upgrades[h.id];
+    const st = heroStats(h);
+    const atkCost = upgradeCost(u.atk);
+    const hpCost = upgradeCost(u.hp);
+    return '<div class="upg-row"><img src="' + h.img + '" alt="" class="pixelated">'
+      + '<div class="flex-1 min-w-0"><div class="font-black text-sm">' + esc(h.name) + '</div>'
+      + '<div class="text-xs text-[#b8a686]">攻擊 ' + fmt(st.atk) + '（Lv' + u.atk + '）・體力 ' + fmt(st.hp) + '（Lv' + u.hp + '）</div></div>'
+      + '<div class="flex flex-col gap-1">'
+      + '<button type="button" onclick="buyUpgrade(\'' + h.id + '\', \'atk\')" class="dark-btn !px-2 !py-1 text-xs"' + (save.merit < atkCost ? ' disabled' : '') + '>⚔️ +' + fmt(atkCost) + '</button>'
+      + '<button type="button" onclick="buyUpgrade(\'' + h.id + '\', \'hp\')" class="dark-btn !px-2 !py-1 text-xs"' + (save.merit < hpCost ? ' disabled' : '') + '>❤️ +' + fmt(hpCost) + '</button>'
+      + '</div></div>';
+  }).join('');
+}
+function buyUpgrade(id, kind) {
+  const u = save.upgrades[id];
+  if (!u) return;
+  const cost = upgradeCost(u[kind]);
+  if (save.merit < cost) return;
+  save.merit -= cost;
+  u[kind]++;
+  persistSave();
+  renderUpgradeList();
+  renderHeader();
+}
+try { renderHeader(); showStart(); } catch (e) {}
+</script>
+</body>
+</html>
