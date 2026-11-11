@@ -251,8 +251,6 @@ t('S19 刀光＋爆裂', T.$('fx-layer').children.length >= 2);
 T.boltFx('enemy', 1);
 t('S19 落雷', T.$('fx-layer').children.length >= 3);
 t('S19 閃光 0.8 秒', html.includes('flashAnim .8s'));
-t('S19 衝刺停在七成', html.includes('dx * 0.7') && html.includes('dy * 0.7'));
-t('S19 受擊閃白', html.includes('hit-flash'));
 
 // --- S20 動作版修正（v1.2.2）：X 刀光＋傷害數字浮在特效層 ---
 freshBattle();
@@ -261,7 +259,15 @@ t('S20 X 刀光兩道＋爆裂', T.$('fx-layer').children.length >= 3);
 const before = T.$('fx-layer').children.length;
 T.floatDmg('enemy', 0, '-1000', '');
 t('S20 傷害數字在特效層', T.$('fx-layer').children.length === before + 1);
-t('S20 受擊閃白整隻', html.includes('.gen-sprite.hit-flash { filter: brightness(2.2); }'));
+t('S20 命中放射白光', html.includes('hitburst-fx'));
 t('S20 閃光持續亮', html.includes('55% { opacity: .75; }'));
+
+// --- S21 動作版修正（v1.2.3）：放射白光＋刀光 0.9s＋震動 0.6s＋衝刺 0.5 ---
+freshBattle();
+T.slashFx('enemy', 0);
+t('S21 刀光 X＋爆裂＋白光', T.$('fx-layer').children.length >= 4);
+t('S21 刀光 0.9 秒亮度維持', html.includes('slashAnim .9s') && html.includes('60% { opacity: 1;'));
+t('S21 震動 0.6 秒', html.includes('shake .6s') && html.includes('scale(1.08)'));
+t('S21 衝刺停路中間', html.includes('dx * 0.5') && html.includes('dy * 0.5'));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
