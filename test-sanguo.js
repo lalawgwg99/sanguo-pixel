@@ -223,10 +223,11 @@ freshBattle();
 mockRandom(0.5);
 T.selectMy(0);
 T.attackEnemy(0);
-const spr0 = T.$('sprite-my-0');
+const spr0 = T.$('sprimg-my-0');
 t('S18 攻擊衝刺 transform', spr0.style.transform && spr0.style.transform.includes('translate'), spr0.style.transform);
+t('S18 名條不跟著衝', !T.$('sprite-my-0').style.transform);
 T.renderAll();
-t('S18 原地更新不洗掉衝刺', T.$('sprite-my-0').style.transform && T.$('sprite-my-0').style.transform.includes('translate'));
+t('S18 原地更新不洗掉衝刺', T.$('sprimg-my-0').style.transform && T.$('sprimg-my-0').style.transform.includes('translate'));
 t('S18 戰場圖片還在', T.$('field-sprites').innerHTML.includes('assets/zhaoyun.webp'));
 unmock();
 freshBattle();
@@ -252,5 +253,15 @@ t('S19 落雷', T.$('fx-layer').children.length >= 3);
 t('S19 閃光 0.8 秒', html.includes('flashAnim .8s'));
 t('S19 衝刺停在七成', html.includes('dx * 0.7') && html.includes('dy * 0.7'));
 t('S19 受擊閃白', html.includes('hit-flash'));
+
+// --- S20 動作版修正（v1.2.2）：X 刀光＋傷害數字浮在特效層 ---
+freshBattle();
+T.slashFx('enemy', 0);
+t('S20 X 刀光兩道＋爆裂', T.$('fx-layer').children.length >= 3);
+const before = T.$('fx-layer').children.length;
+T.floatDmg('enemy', 0, '-1000', '');
+t('S20 傷害數字在特效層', T.$('fx-layer').children.length === before + 1);
+t('S20 受擊閃白整隻', html.includes('.gen-sprite.hit-flash { filter: brightness(2.2); }'));
+t('S20 閃光持續亮', html.includes('55% { opacity: .75; }'));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
