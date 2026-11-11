@@ -47,7 +47,7 @@ function t(name, cond, extra) {
   else { fail++; console.log('FAIL: ' + name + (extra !== undefined ? ' | ' + extra : '')); }
 }
 
-eval(script + ';globalThis.__T={SAVE_KEY,HEROES,ENEMIES,FORMATIONS,DIFFS,SKILLS,SP_MAX,SP_PER_ACTION,defaultSave,loadSave,persistSave,stageScale,heroStats,upgradeCost,newBattle,calcDamage,isCrit,renderAll,renderHeader,renderTeams,renderStatus,renderSkillBtns,log,floatDmg,bumpCard,sfx,toggleMute,selectMy,attackEnemy,doAttack,enemyCounter,simayiCurse,endTurn,useSkill,checkEnd,winBattle,loseBattle,nextStage,backToStart,showStart,setDiff,setFormation,startBattle,openFormation,closeFormation,renderFormationList,openUpgrade,closeUpgrade,renderUpgradeList,buyUpgrade,$,esc,clamp,fmt,get save(){return save},set save(v){save=v},get battle(){return battle},set battle(v){battle=v}};');
+eval(script + ';globalThis.__T={SAVE_KEY,HEROES,ENEMIES,FORMATIONS,DIFFS,SKILLS,SP_MAX,SP_PER_ACTION,defaultSave,loadSave,persistSave,stageScale,heroStats,upgradeCost,newBattle,calcDamage,isCrit,renderAll,renderHeader,renderTeams,renderStatus,renderSkillBtns,log,floatDmg,bumpCard,slotPos,spriteHtml,buildBattlefield,updateBattlefield,updateSprite,dashTo,slashFx,fieldFlash,rainFx,fireballFx,sfx,toggleMute,selectMy,attackEnemy,doAttack,enemyCounter,simayiCurse,endTurn,useSkill,checkEnd,winBattle,loseBattle,nextStage,backToStart,showStart,setDiff,setFormation,startBattle,openFormation,closeFormation,renderFormationList,openUpgrade,closeUpgrade,renderUpgradeList,buyUpgrade,$,esc,clamp,fmt,get save(){return save},set save(v){save=v},get battle(){return battle},set battle(v){battle=v}};');
 const T = globalThis.__T;
 const realRandom = Math.random;
 function mockRandom(v) { Math.random = () => v; }
@@ -199,10 +199,9 @@ unmock();
 // --- S15 渲染有圖片與名字 ---
 freshBattle();
 T.renderTeams();
-const myHtml = T.$('my-team').innerHTML;
-const enHtml = T.$('enemy-team').innerHTML;
-t('S15 我軍有趙雲圖片', myHtml.includes('assets/zhaoyun.webp') && myHtml.includes('趙雲'));
-t('S15 敵軍有司馬懿圖片', enHtml.includes('assets/simayi.webp') && enHtml.includes('司馬懿'));
+const fieldHtml = T.$('field-sprites').innerHTML;
+t('S15 戰場有趙雲圖片', fieldHtml.includes('assets/zhaoyun.webp') && fieldHtml.includes('趙雲'));
+t('S15 戰場有司馬懿圖片', fieldHtml.includes('assets/simayi.webp') && fieldHtml.includes('司馬懿'));
 t('S15 十張圖全在原始碼', ['zhaoyun','guanyu','zhangfei','zhouyu','jiangwei','simayi','simayan','dengai','zhonghui','xuhuang'].every(n => html.includes('assets/' + n + '.webp')));
 
 // --- S16 原始碼檢查 ---
@@ -218,5 +217,30 @@ t('S17 開機其他彈窗是 hidden', T.$('panel-formation').classList.contains(
 T.showStart();
 t('S17 開機開始畫面顯示', !T.$('panel-start').classList.contains('hidden'));
 t('S17 showStart 藏起其他彈窗', T.$('panel-formation').classList.contains('hidden') && T.$('panel-result').classList.contains('hidden') && T.$('panel-upgrade').classList.contains('hidden'));
+
+// --- S18 動作版（v1.2）：戰場＋衝刺＋倒地＋技能特效 ---
+freshBattle();
+mockRandom(0.5);
+T.selectMy(0);
+T.attackEnemy(0);
+const spr0 = T.$('sprite-my-0');
+t('S18 攻擊衝刺 transform', spr0.style.transform && spr0.style.transform.includes('translate'), spr0.style.transform);
+T.renderAll();
+t('S18 原地更新不洗掉衝刺', T.$('sprite-my-0').style.transform && T.$('sprite-my-0').style.transform.includes('translate'));
+t('S18 戰場圖片還在', T.$('field-sprites').innerHTML.includes('assets/zhaoyun.webp'));
+unmock();
+freshBattle();
+T.battle.my[0].hp = 0;
+T.renderAll();
+t('S18 倒下加 dead', T.$('sprite-my-0').classList.contains('dead'));
+freshBattle();
+T.useSkill('thunder');
+t('S18 潛雷計閃光', T.$('fx-flash').classList.contains('flash-on'));
+freshBattle();
+T.useSkill('rain');
+t('S18 聖雨落雨', T.$('fx-rain').classList.contains('rain-on'));
+freshBattle();
+T.useSkill('fire');
+t('S18 火計火球', T.$('fx-layer').children.length > 0);
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');

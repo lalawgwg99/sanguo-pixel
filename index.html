@@ -8,22 +8,31 @@
 <style>
   body { background: #0d0b1e; }
   .pixelated { image-rendering: pixelated; }
-  .gen-card { position: relative; background: #1c1830; border: 2px solid #3d355e; border-radius: 10px; padding: 3px; cursor: pointer; text-align: center; transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease; }
-  .gen-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 7px; display: block; }
-  .gen-card .gname { font-size: 12px; font-weight: 900; color: #f4ede0; margin-top: 2px; white-space: nowrap; overflow: hidden; }
-  .gen-card .hp-num { font-size: 10px; color: #b8a686; line-height: 1.2; }
-  .gen-card.selected { border-color: #f6c453; box-shadow: 0 0 12px #f6c453; transform: translateY(-3px); }
-  .gen-card.targetable { border-color: #ef4444; animation: pulseRed 1s ease-in-out infinite; }
+  .gen-sprite { position: absolute; width: 18%; background: rgba(10,8,24,.25); border: 2px solid transparent; border-radius: 10px; padding: 2px; cursor: pointer; text-align: center; transition: transform .32s ease, border-color .12s ease, box-shadow .12s ease; z-index: 2; }
+  .gen-sprite img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; display: block; border: 2px solid rgba(0,0,0,.55); animation: bob 2.4s ease-in-out infinite; }
+  .gen-sprite .gname { font-size: 12px; font-weight: 900; color: #fff; margin-top: 2px; white-space: nowrap; overflow: hidden; text-shadow: 0 1px 2px #000; }
+  .gen-sprite .hp-num { font-size: 10px; color: #ffe9a8; line-height: 1.2; text-shadow: 0 1px 2px #000; }
+  .gen-sprite.selected { border-color: #f6c453; box-shadow: 0 0 12px #f6c453; }
+  .gen-sprite.targetable { border-color: #ef4444; animation: pulseRed 1s ease-in-out infinite; }
   @keyframes pulseRed { 0%,100% { box-shadow: 0 0 0 rgba(239,68,68,0); } 50% { box-shadow: 0 0 10px rgba(239,68,68,.8); } }
-  .gen-card.dead { filter: grayscale(1) brightness(.45); cursor: default; }
+  .gen-sprite.dead { cursor: default; }
+  .gen-sprite.dead img { animation: none; transform: rotate(78deg) translateY(10px); filter: grayscale(1) brightness(.45); transition: transform .4s ease, filter .4s ease; }
+  .gen-sprite.dead .gname, .gen-sprite.dead .hp-num { opacity: .45; }
+  .gen-sprite.heal-glow { box-shadow: 0 0 14px rgba(74,222,128,.9); }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
   .hp-bar { height: 7px; background: #2a2438; border-radius: 999px; overflow: hidden; margin-top: 3px; border: 1px solid #000; }
   .hp-fill { height: 100%; background: linear-gradient(90deg, #22c55e, #4ade80); transition: width .3s ease; }
   .hp-fill.low { background: linear-gradient(90deg, #dc2626, #f87171); }
   .hp-fill.mid { background: linear-gradient(90deg, #d97706, #fbbf24); }
-  .lunge-up { animation: lungeUp .28s ease; }
-  @keyframes lungeUp { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
-  .lunge-down { animation: lungeDown .28s ease; }
-  @keyframes lungeDown { 0% { transform: translateY(0); } 50% { transform: translateY(10px); } 100% { transform: translateY(0); } }
+  .slash-fx { position: absolute; width: 64px; height: 8px; margin-left: -32px; margin-top: -4px; background: linear-gradient(90deg, transparent, #fff, transparent); transform: rotate(-45deg); border-radius: 4px; box-shadow: 0 0 12px #fff; z-index: 18; pointer-events: none; animation: slashAnim .4s ease-out forwards; }
+  @keyframes slashAnim { from { opacity: 1; transform: rotate(-45deg) scaleX(.2); } to { opacity: 0; transform: rotate(-45deg) scaleX(1.4); } }
+  .fireball { position: absolute; font-size: 30px; z-index: 18; transform: translate(-50%, -50%); pointer-events: none; }
+  #fx-flash { opacity: 0; background: radial-gradient(circle, rgba(255,255,200,.9), rgba(255,220,80,.35)); }
+  #fx-flash.flash-on { animation: flashAnim .45s ease; }
+  @keyframes flashAnim { 0% { opacity: 0; } 25% { opacity: .85; } 100% { opacity: 0; } }
+  #fx-rain { opacity: 0; background: repeating-linear-gradient(100deg, transparent 0 16px, rgba(125,211,252,.45) 16px 17px); }
+  #fx-rain.rain-on { opacity: 1; animation: rainFall .5s linear infinite; }
+  @keyframes rainFall { from { background-position: 0 -60px; } to { background-position: 0 0; } }
   .shake { animation: shake .3s ease; }
   @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
   .dmg-float { position: absolute; left: 50%; top: 30%; transform: translate(-50%, 0); font-size: 18px; font-weight: 900; color: #fff; text-shadow: 0 2px 0 #000, 0 0 6px rgba(0,0,0,.8); pointer-events: none; z-index: 10; animation: floatUp .9s ease-out forwards; white-space: nowrap; }
@@ -38,7 +47,7 @@
   .gold-btn { background: linear-gradient(180deg, #f6c453, #d9941a); color: #1e1a16; border-radius: 12px; font-weight: 900; padding: 10px 14px; }
   .paper-btn { background: #f4ede0; color: #1e1a16; border-radius: 12px; font-weight: 900; padding: 10px 14px; }
   .dark-btn { background: #2a2144; border: 2px solid #4c3f78; color: #fff; border-radius: 12px; font-weight: 800; padding: 10px 14px; }
-  .log-box { background: #14102a; border: 1px solid #3d355e; border-radius: 10px; height: 110px; overflow-y: auto; padding: 8px 10px; font-size: 13px; line-height: 1.6; }
+  .log-box { background: #14102a; border: 1px solid #3d355e; border-radius: 10px; height: 64px; overflow-y: auto; padding: 6px 10px; font-size: 12px; line-height: 1.5; }
   .overlay { position: fixed; inset: 0; background: rgba(5,3,18,.88); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
   .overlay.hidden { display: none; }
   .panel { background: #1c1830; border: 2px solid #4c3f78; border-radius: 16px; padding: 18px; width: 100%; max-width: 380px; max-height: 86vh; overflow-y: auto; }
@@ -63,15 +72,15 @@
     <span>陣型 <span id="formation-name" class="text-[#f6c453]">鶴翼陣</span></span>
   </div>
 
-  <!-- 敵軍 -->
-  <div class="text-xs font-black text-[#f87171] mt-3 mb-1">敵軍・司馬懿軍 <span id="enemy-alive" class="text-[#b8a686]"></span></div>
-  <div id="enemy-team" class="grid grid-cols-5 gap-1.5"></div>
-
-  <div class="text-center font-black text-[#f6c453] text-lg my-2">⚔️ VS ⚔️</div>
-
-  <!-- 我軍 -->
-  <div class="text-xs font-black text-[#4ade80] mb-1">我軍・蜀漢軍 <span id="my-alive" class="text-[#b8a686]"></span></div>
-  <div id="my-team" class="grid grid-cols-5 gap-1.5"></div>
+  <!-- 戰場 -->
+  <div id="battlefield" class="relative overflow-hidden rounded-xl border border-[#3d355e] mt-3" style="height:340px; background:url('assets/battlefield.webp') center/cover no-repeat #14211a;">
+    <div class="absolute top-1 left-2 text-xs font-black text-[#f87171] z-10" style="text-shadow:0 1px 2px #000">敵軍・司馬懿軍 <span id="enemy-alive" class="text-[#ffd9d9]"></span></div>
+    <div class="absolute bottom-1 left-2 text-xs font-black text-[#4ade80] z-10" style="text-shadow:0 1px 2px #000">我軍・蜀漢軍 <span id="my-alive" class="text-[#d9ffd9]"></span></div>
+    <div id="field-sprites" class="absolute inset-0"></div>
+    <div id="fx-rain" class="absolute inset-0 pointer-events-none" style="z-index:15"></div>
+    <div id="fx-flash" class="absolute inset-0 pointer-events-none" style="z-index:16"></div>
+    <div id="fx-layer" class="absolute inset-0 pointer-events-none" style="z-index:18"></div>
+  </div>
 
   <div id="hint" class="text-center text-xs text-[#b8a686] mt-2">👆 點我方武將，再點敵軍攻擊</div>
 
@@ -247,24 +256,54 @@ function renderHeader() {
   $('btn-mute').textContent = save.muted ? '🔇' : '🔊';
 }
 function hpClass(hp, max) { const r = hp / max; return r <= 0.25 ? 'low' : (r <= 0.5 ? 'mid' : ''); }
-function cardHtml(u, side, i) {
-  const dead = u.hp <= 0;
-  const cls = side === 'my'
-    ? 'gen-card' + (dead ? ' dead' : '') + (battle && battle.selected === i && !dead ? ' selected' : '')
-    : 'gen-card' + (dead ? ' dead' : '') + (battle && battle.selected >= 0 && !dead ? ' targetable' : '');
-  const onclick = side === 'my' ? 'selectMy(' + i + ')' : 'attackEnemy(' + i + ')';
-  return '<button type="button" class="' + cls + '" id="card-' + side + '-' + i + '" onclick="' + onclick + '">'
-    + '<img src="' + u.img + '" alt="' + esc(u.name) + '" class="pixelated">'
-    + '<div class="gname">' + esc(u.name) + '</div>'
-    + '<div class="hp-bar"><div class="hp-fill ' + hpClass(u.hp, u.max) + '" style="width:' + Math.max(0, u.hp / u.max * 100) + '%"></div></div>'
-    + '<div class="hp-num">' + fmt(Math.max(0, u.hp)) + ' / ' + fmt(u.max) + '</div></button>';
+function slotPos(side, i) {
+  const lefts = [2, 21, 40, 59, 78];
+  return { left: lefts[i], top: side === 'enemy' ? 7 : 60 };
 }
+function spriteHtml(u, side, i) {
+  const p = slotPos(side, i);
+  const dead = u.hp <= 0;
+  const cls = 'gen-sprite' + (dead ? ' dead' : '') + (side === 'my' && battle.selected === i && !dead ? ' selected' : '') + (side === 'enemy' && battle.selected >= 0 && !dead ? ' targetable' : '');
+  const onclick = side === 'my' ? 'selectMy(' + i + ')' : 'attackEnemy(' + i + ')';
+  return '<button type="button" class="' + cls + '" id="sprite-' + side + '-' + i + '" style="left:' + p.left + '%; top:' + p.top + '%" onclick="' + onclick + '">'
+    + '<img src="' + u.img + '" alt="' + esc(u.name) + '" class="pixelated" style="animation-delay:' + (i * 0.35) + 's">'
+    + '<div class="gname">' + esc(u.name) + '</div>'
+    + '<div class="hp-bar"><div class="hp-fill ' + hpClass(u.hp, u.max) + '" id="hpfill-' + side + '-' + i + '" style="width:' + Math.max(0, u.hp / u.max * 100) + '%"></div></div>'
+    + '<div class="hp-num" id="hpnum-' + side + '-' + i + '">' + fmt(Math.max(0, u.hp)) + ' / ' + fmt(u.max) + '</div></button>';
+}
+let fieldBattle = null;
 function renderTeams() {
   if (!battle) return;
-  $('my-team').innerHTML = battle.my.map((u, i) => cardHtml(u, 'my', i)).join('');
-  $('enemy-team').innerHTML = battle.enemy.map((u, i) => cardHtml(u, 'enemy', i)).join('');
+  if (fieldBattle !== battle) { buildBattlefield(); fieldBattle = battle; }
+  else updateBattlefield();
+}
+function buildBattlefield() {
+  const sp = $('field-sprites');
+  if (!sp) return;
+  sp.innerHTML = battle.my.map((u, i) => spriteHtml(u, 'my', i)).join('')
+    + battle.enemy.map((u, i) => spriteHtml(u, 'enemy', i)).join('');
+  updateBattlefield();
+}
+function updateBattlefield() {
+  battle.my.forEach((u, i) => updateSprite('my', i, u));
+  battle.enemy.forEach((u, i) => updateSprite('enemy', i, u));
   $('my-alive').textContent = '(' + battle.my.filter(u => u.hp > 0).length + ' 人存活)';
   $('enemy-alive').textContent = '(' + battle.enemy.filter(u => u.hp > 0).length + ' 人存活)';
+}
+function updateSprite(side, i, u) {
+  const el = $('sprite-' + side + '-' + i);
+  if (!el) return;
+  const dead = u.hp <= 0;
+  el.classList.toggle('dead', dead);
+  el.classList.toggle('selected', side === 'my' && battle.selected === i && !dead);
+  el.classList.toggle('targetable', side === 'enemy' && battle.selected >= 0 && !dead);
+  const fill = $('hpfill-' + side + '-' + i);
+  if (fill) {
+    fill.style.width = Math.max(0, u.hp / u.max * 100) + '%';
+    fill.className = 'hp-fill ' + hpClass(u.hp, u.max);
+  }
+  const num = $('hpnum-' + side + '-' + i);
+  if (num) num.textContent = fmt(Math.max(0, u.hp)) + ' / ' + fmt(u.max);
 }
 function renderStatus() {
   if (!battle) return;
@@ -286,7 +325,7 @@ function log(msg) {
   el.innerHTML = '<div>・' + esc(msg) + '</div>' + el.innerHTML;
 }
 function floatDmg(side, i, text, cls) {
-  const card = $('card-' + side + '-' + i);
+  const card = $('sprite-' + side + '-' + i);
   if (!card) return;
   const span = document.createElement('span');
   span.className = 'dmg-float ' + (cls || '');
@@ -295,12 +334,75 @@ function floatDmg(side, i, text, cls) {
   setTimeout(() => { if (span.remove) span.remove(); }, 950);
 }
 function bumpCard(side, i, anim) {
-  const card = $('card-' + side + '-' + i);
+  const card = $('sprite-' + side + '-' + i);
   if (!card) return;
   card.classList.remove(anim);
   void card.offsetWidth;
   card.classList.add(anim);
   setTimeout(() => card.classList.remove(anim), 350);
+}
+function dashTo(attSide, attIdx, defSide, defIdx, done) {
+  const att = $('sprite-' + attSide + '-' + attIdx);
+  const field = $('battlefield');
+  if (!att || !field) { if (done) done(); return; }
+  const w = field.clientWidth || 0, h = field.clientHeight || 0;
+  const a = slotPos(attSide, attIdx), d = slotPos(defSide, defIdx);
+  const dx = (d.left - a.left) / 100 * w;
+  const dy = (d.top - a.top) / 100 * h;
+  att.style.zIndex = '10';
+  att.style.transform = 'translate(' + Math.round(dx * 0.85) + 'px,' + Math.round(dy * 0.85) + 'px) scale(1.12)';
+  setTimeout(() => {
+    slashFx(defSide, defIdx);
+    bumpCard(defSide, defIdx, 'shake');
+    if (done) done();
+    setTimeout(() => { att.style.transform = ''; att.style.zIndex = ''; }, 260);
+  }, 330);
+}
+function slashFx(side, i) {
+  const layer = $('fx-layer');
+  if (!layer) return;
+  const p = slotPos(side, i);
+  const s = document.createElement('div');
+  s.className = 'slash-fx';
+  s.style.left = (p.left + 9) + '%';
+  s.style.top = (p.top + 7) + '%';
+  layer.appendChild(s);
+  setTimeout(() => { if (s.remove) s.remove(); }, 450);
+}
+function fieldFlash() {
+  const f = $('fx-flash');
+  if (!f) return;
+  f.classList.remove('flash-on');
+  void f.offsetWidth;
+  f.classList.add('flash-on');
+  setTimeout(() => f.classList.remove('flash-on'), 500);
+}
+function rainFx() {
+  const r = $('fx-rain');
+  if (!r) return;
+  r.classList.add('rain-on');
+  setTimeout(() => r.classList.remove('rain-on'), 1000);
+}
+function fireballFx(targetIdx, done) {
+  const layer = $('fx-layer');
+  if (!layer) { if (done) done(); return; }
+  const fb = document.createElement('div');
+  fb.className = 'fireball';
+  fb.textContent = '🔥';
+  fb.style.left = '50%';
+  fb.style.top = '82%';
+  layer.appendChild(fb);
+  void fb.offsetWidth;
+  const t = slotPos('enemy', targetIdx);
+  fb.style.transition = 'left .35s ease-in, top .35s ease-in';
+  fb.style.left = (t.left + 9) + '%';
+  fb.style.top = (t.top + 7) + '%';
+  setTimeout(() => {
+    if (fb.remove) fb.remove();
+    slashFx('enemy', targetIdx);
+    bumpCard('enemy', targetIdx, 'shake');
+    if (done) done();
+  }, 380);
 }
 let audioCtx = null;
 function sfx(kind) {
@@ -340,6 +442,7 @@ function attackEnemy(i) {
   if (!def || def.hp <= 0) { log('他已經倒下了！'); return; }
   const attIdx = battle.selected;
   battle.selected = -1;
+  $('hint').textContent = '👆 點我方武將，再點敵軍攻擊';
   doAttack(att, def, 'my', attIdx, 'enemy', i, true);
   if (checkEnd()) return;
   enemyCounter(attIdx);
@@ -350,9 +453,9 @@ function doAttack(att, def, attSide, attIdx, defSide, defIdx, isHeroAttack) {
   const crit = isCrit();
   const dmg = calcDamage(att.atk, isHeroAttack, crit);
   def.hp = Math.max(0, def.hp - dmg);
-  bumpCard(attSide, attIdx, attSide === 'my' ? 'lunge-up' : 'lunge-down');
-  bumpCard(defSide, defIdx, 'shake');
-  floatDmg(defSide, defIdx, (crit ? '暴擊 ' : '') + '-' + fmt(dmg), crit ? 'crit' : '');
+  dashTo(attSide, attIdx, defSide, defIdx, () => {
+    floatDmg(defSide, defIdx, (crit ? '暴擊 ' : '') + '-' + fmt(dmg), crit ? 'crit' : '');
+  });
   log(att.name + ' 攻擊 ' + def.name + '，造成 ' + fmt(dmg) + ' 傷害' + (crit ? '（暴擊！）' : '') + '！');
   sfx(crit ? 'crit' : 'hit');
 }
@@ -367,9 +470,9 @@ function enemyCounter(attIdx) {
   const raw = pick.e.atk * (0.7 + Math.random() * 0.4);
   const dmg = Math.max(1, Math.round(raw * form.defMul));
   target.hp = Math.max(0, target.hp - dmg);
-  bumpCard('enemy', pick.i, 'lunge-down');
-  bumpCard('my', attIdx, 'shake');
-  floatDmg('my', attIdx, '-' + fmt(dmg), '');
+  setTimeout(() => {
+    dashTo('enemy', pick.i, 'my', attIdx, () => floatDmg('my', attIdx, '-' + fmt(dmg), ''));
+  }, 650);
   log(pick.e.name + ' 反擊 ' + target.name + '，造成 ' + fmt(dmg) + ' 傷害！');
   sfx('hit');
 }
@@ -400,19 +503,26 @@ function useSkill(key) {
   if (battle.sp < sk.cost) { log('SP 不足！需要 ' + sk.cost + '，現在只有 ' + battle.sp + '。'); return; }
   battle.sp -= sk.cost;
   if (key === 'thunder') {
+    fieldFlash();
     battle.enemy.forEach((e, i) => {
       if (e.hp <= 0) return;
       e.hp = Math.max(0, e.hp - sk.dmg);
-      bumpCard('enemy', i, 'shake');
-      floatDmg('enemy', i, '-' + fmt(sk.dmg), 'skill');
+      setTimeout(() => { bumpCard('enemy', i, 'shake'); floatDmg('enemy', i, '-' + fmt(sk.dmg), 'skill'); }, 120 * i + 100);
     });
     log('⚡ 潛雷計！全體敵軍 -' + fmt(sk.dmg) + '！');
   } else if (key === 'rain') {
+    rainFx();
     battle.my.forEach((u, i) => {
       if (u.hp <= 0) return;
       const healed = Math.min(u.max - u.hp, sk.heal);
       u.hp += healed;
-      if (healed > 0) floatDmg('my', i, '+' + fmt(healed), 'heal');
+      if (healed > 0) {
+        setTimeout(() => {
+          floatDmg('my', i, '+' + fmt(healed), 'heal');
+          const el = $('sprite-my-' + i);
+          if (el) { el.classList.add('heal-glow'); setTimeout(() => el.classList.remove('heal-glow'), 900); }
+        }, 100 * i + 150);
+      }
     });
     log('🌧️ 聖雨！我軍全體恢復 ' + fmt(sk.heal) + '！');
   } else if (key === 'fire') {
@@ -420,8 +530,7 @@ function useSkill(key) {
     if (alive.length === 0) { battle.sp += sk.cost; return; }
     const pick = alive.slice().sort((a, b) => a.e.hp - b.e.hp)[0];
     pick.e.hp = Math.max(0, pick.e.hp - sk.dmg);
-    bumpCard('enemy', pick.i, 'shake');
-    floatDmg('enemy', pick.i, '-' + fmt(sk.dmg), 'skill');
+    fireballFx(pick.i, () => floatDmg('enemy', pick.i, '-' + fmt(sk.dmg), 'skill'));
     log('🔥 火計！' + pick.e.name + ' 受到 ' + fmt(sk.dmg) + ' 傷害！');
   }
   sfx('skill');
