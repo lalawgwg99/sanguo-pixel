@@ -47,7 +47,7 @@ function t(name, cond, extra) {
   else { fail++; console.log('FAIL: ' + name + (extra !== undefined ? ' | ' + extra : '')); }
 }
 
-eval(script + ';globalThis.__T={SAVE_KEY,HEROES,ENEMIES,FORMATIONS,DIFFS,SKILLS,SP_MAX,SP_PER_ACTION,defaultSave,loadSave,persistSave,stageScale,heroStats,upgradeCost,newBattle,calcDamage,isCrit,renderAll,renderHeader,renderTeams,renderStatus,renderSkillBtns,log,floatDmg,bumpCard,slotPos,spriteHtml,buildBattlefield,updateBattlefield,updateSprite,dashTo,slashFx,fieldFlash,rainFx,fireballFx,sfx,toggleMute,selectMy,attackEnemy,doAttack,enemyCounter,simayiCurse,endTurn,useSkill,checkEnd,winBattle,loseBattle,nextStage,backToStart,showStart,setDiff,setFormation,startBattle,openFormation,closeFormation,renderFormationList,openUpgrade,closeUpgrade,renderUpgradeList,buyUpgrade,$,esc,clamp,fmt,get save(){return save},set save(v){save=v},get battle(){return battle},set battle(v){battle=v}};');
+eval(script + ';globalThis.__T={SAVE_KEY,HEROES,ENEMIES,FORMATIONS,DIFFS,SKILLS,SP_MAX,SP_PER_ACTION,defaultSave,loadSave,persistSave,stageScale,heroStats,upgradeCost,newBattle,calcDamage,isCrit,renderAll,renderHeader,renderTeams,renderStatus,renderSkillBtns,log,floatDmg,bumpCard,slotPos,spriteHtml,buildBattlefield,updateBattlefield,updateSprite,dashTo,slashFx,boltFx,fieldFlash,rainFx,fireballFx,sfx,toggleMute,selectMy,attackEnemy,doAttack,enemyCounter,simayiCurse,endTurn,useSkill,checkEnd,winBattle,loseBattle,nextStage,backToStart,showStart,setDiff,setFormation,startBattle,openFormation,closeFormation,renderFormationList,openUpgrade,closeUpgrade,renderUpgradeList,buyUpgrade,$,esc,clamp,fmt,get save(){return save},set save(v){save=v},get battle(){return battle},set battle(v){battle=v}};');
 const T = globalThis.__T;
 const realRandom = Math.random;
 function mockRandom(v) { Math.random = () => v; }
@@ -242,5 +242,15 @@ t('S18 聖雨落雨', T.$('fx-rain').classList.contains('rain-on'));
 freshBattle();
 T.useSkill('fire');
 t('S18 火計火球', T.$('fx-layer').children.length > 0);
+
+// --- S19 動作版修正（v1.2.1）：刀光＋落雷＋閃光時長 ---
+freshBattle();
+T.slashFx('enemy', 0);
+t('S19 刀光＋爆裂', T.$('fx-layer').children.length >= 2);
+T.boltFx('enemy', 1);
+t('S19 落雷', T.$('fx-layer').children.length >= 3);
+t('S19 閃光 0.8 秒', html.includes('flashAnim .8s'));
+t('S19 衝刺停在七成', html.includes('dx * 0.7') && html.includes('dy * 0.7'));
+t('S19 受擊閃白', html.includes('hit-flash'));
 
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
